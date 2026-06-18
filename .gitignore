@@ -1,0 +1,47 @@
+Debug/*
+Release/*
+benchmark/Debug/*
+benchmark/Release/*
+benchmark/build/*
+libs/glfw-3.4.bin.WIN64/*
+libs/imgui-1.91.6/*
+!libs/glfw-3.4.bin.WIN64/.gitkeep
+!libs/imgui-1.91.6/.gitkeep
+
+imgui.ini
+*.pdb
+*.rdi
+*.txt
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
