@@ -115,7 +115,7 @@ static void generate_example_code(char* buf, size_t buf_size, int size, const do
 		}
 		pos += snprintf(buf + pos, buf_size - pos, ";\n}");
 	}
-	else {
+	else { // FUNC_SIN
 		pos += snprintf(buf + pos, buf_size - pos,
 						"double window_function (const double x) {\n"
 						"\tconst double c = cos(x);\n"
@@ -226,27 +226,54 @@ int WinMain(void*, void*, int, char**) {
 		ImGui::SameLine();
 
 		// --- Examples drop-down list ---
+		bool apply_example = false;
 		const char* preview = (current_example >= 0) ? examples[current_example].label : "Select...";
+		float arrow_width = ImGui::GetFrameHeight();
+		float spacing = ImGui::GetStyle().ItemSpacing.x;
+		float clear_width = ImGui::CalcTextSize("Clear").x + ImGui::GetStyle().FramePadding.x * 2;
+		float combo_width = ImGui::GetContentRegionAvail().x - 2 * arrow_width - clear_width - 3 * spacing;
+
+		ImGui::SetNextItemWidth(combo_width);
 		if (ImGui::BeginCombo("##examples", preview)) {
 			for (int i = 0; i < examples_count; i++) {
 				bool is_selected = (current_example == i);
 				if (ImGui::Selectable(examples[i].label, is_selected)) {
 					current_example = i;
-					size = examples[i].size;
-					memcpy(inputs, examples[i].coeffs, sizeof(double) * MAX_POINTS);
-					if (examples[i].kind == FUNC_COS) {
-						pending_tab = 0;
-						chebCosSum(size, inputs, outputs);
-					}
-					else {
-						pending_tab = 1;
-						chebSinSum(size - 1, inputs + 1, outputs);
-					}
+					apply_example = true;
 				}
 				if (is_selected)
 					ImGui::SetItemDefaultFocus();
 			}
 			ImGui::EndCombo();
+		}
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled(current_example <= 0);
+		if (ImGui::ArrowButton("##prev", ImGuiDir_Left)) {
+			current_example--;
+			apply_example = true;
+		}
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled(current_example >= examples_count - 1);
+		if (ImGui::ArrowButton("##next", ImGuiDir_Right)) {
+			current_example++;
+			apply_example = true;
+		}
+		ImGui::EndDisabled();
+
+		if (apply_example) {
+			size = examples[current_example].size;
+			memcpy(inputs, examples[current_example].coeffs, sizeof(double) * MAX_POINTS);
+			if (examples[current_example].kind == FUNC_COS) {
+				pending_tab = 0;
+				chebCosSum(size, inputs, outputs);
+			}
+			else {
+				pending_tab = 1;
+				chebSinSum(size - 1, inputs + 1, outputs);
+			}
 		}
 
 		ImGui::SameLine();
