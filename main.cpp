@@ -70,30 +70,23 @@ static const WindowExample examples[] = {
 static const int examples_count = sizeof(examples) / sizeof(examples[0]);
 
 // --- String builders ---
-static void build_input_label(char* buf, size_t buf_size, int i, FuncKind kind) {
-	if		(i == 0) {			snprintf(buf, buf_size, "scalar##in");}
-	else if (i == 1) {
-		if (kind == FUNC_COS)	snprintf(buf, buf_size, "cos(x)##in");
-		else					snprintf(buf, buf_size, "sin(x)##in");
-	}
-	else {
-		if (kind == FUNC_COS)	snprintf(buf, buf_size, "cos(%dx)##in", i);
-		else					snprintf(buf, buf_size, "sin(%dx)##in", i);
-	}
+static void buildInputLabel(char* buf, size_t buf_size, int i, FuncKind kind) {
+	if		(i == 0) snprintf(buf, buf_size, "scalar##in");
+	else if (i == 1) snprintf(buf, buf_size, "%s(x)##in",	(kind == FUNC_COS) ? "cos" : "sin");
+	else			 snprintf(buf, buf_size, "%s(%dx)##in",	(kind == FUNC_COS) ? "cos" : "sin", i);
 }
 
-static void build_output_label(char* buf, size_t buf_size, int i) {
+static void buildOutputLabel(char* buf, size_t buf_size, int i) {
 	if		(i == 0) snprintf(buf, buf_size, "scalar##out");
 	else if (i == 1) snprintf(buf, buf_size, "cos(x)##out");
 	else 			 snprintf(buf, buf_size, "cos(x)^%d##out", i);
 }
 
-static void generate_example_code(char* buf, size_t buf_size, int size, const double* outputs, FuncKind kind) {
-	if (size < 1) {
+static void generateExampleCode(char* buf, const size_t buf_size, const int size, const double* outputs, const FuncKind kind) {
+	if (size < 2) {
 		buf[0] = '\0';
 		return;
 	}
-
 	int pos = 0;
 
 	if (kind == FUNC_COS) {
@@ -101,59 +94,42 @@ static void generate_example_code(char* buf, size_t buf_size, int size, const do
 						"double window_function (const double x) {\n"
 						"\tconst double c = cos(2.0 * pi * x);\n"
 						"\treturn ");
-		for (int i = 1; i < size; i++) {
+		for (int i = 0; i <= size - 2; i++)
 			pos += snprintf(buf + pos, buf_size - pos, "(");
-		}
 		pos += snprintf(buf + pos, buf_size - pos, " %.20f", outputs[size - 1]);
-		for (int i = size - 2; i >= 0; i--) {
-			if (outputs[i] >= 0) {
-				pos += snprintf(buf + pos, buf_size - pos, "\n\t\t\t\t* c + %.20f )", +outputs[i]);
-			}
-			else {
-				pos += snprintf(buf + pos, buf_size - pos, "\n\t\t\t\t* c - %.20f )", -outputs[i]);
-			}
-		}
+		for (int i = size - 2; i >= 0; i--)
+			pos += snprintf(buf + pos, buf_size - pos, "\n\t\t\t\t* c %s %.20f )", (outputs[i] >= 0) ? "+" : "-", fabs(outputs[i]));
 		pos += snprintf(buf + pos, buf_size - pos, ";\n}");
 	}
 	else { // FUNC_SIN
 		pos += snprintf(buf + pos, buf_size - pos,
 						"double window_function (const double x) {\n"
-						"\tconst double c = cos(x);\n"
-						"\tconst double s = sin(x);\n"
+						"\tconst double c = cos(2.0 * pi * x);\n"
+						"\tconst double s = sin(2.0 * pi * x);\n"
 						"\treturn s * (");
-		for (int i = 1; i < size - 2; i++) {
+		for (int i = 1; i <= size - 3; i++) // first l-bracket are already here
 			pos += snprintf(buf + pos, buf_size - pos, "(");
-		}
-		if (size > 0) {
-			pos += snprintf(buf + pos, buf_size - pos, " %.20f", outputs[size - 2]);
-		}
-		for (int i = size - 3; i >= 0; i--) {
-			if (outputs[i] >= 0) {
-				pos += snprintf(buf + pos, buf_size - pos, "\n\t\t\t\t* c + %.20f )", +outputs[i]);
-			}
-			else {
-				pos += snprintf(buf + pos, buf_size - pos, "\n\t\t\t\t* c - %.20f )", -outputs[i]);
-			}
-		}
-		if (size < 3) pos += snprintf(buf + pos, buf_size - pos, " )");
+		pos += snprintf(buf + pos, buf_size - pos, " %.20f", outputs[size - 2]);
+		for (int i = size - 3; i >= 0; i--)
+			pos += snprintf(buf + pos, buf_size - pos, "\n\t\t\t\t* c %s %.20f )", (outputs[i] >= 0) ? "+" : "-", fabs(outputs[i]));
+		if (size < 3)
+			pos += snprintf(buf + pos, buf_size - pos, " )");
 		pos += snprintf(buf + pos, buf_size - pos, ";\n}");
 	}
 }
 
 // Main code
-int WinMain(void*, void*, int, char**) {
+int WinMain(void*, void*, char*, int) {
 	glfwSetErrorCallback(glfw_error_callback);
 	if (!glfwInit())
 		return -1;
-
 	const char* glsl_version = "#version 130";
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
 	GLFWwindow* window = glfwCreateWindow(800, 600, "Cosine/Sine sum resolver", nullptr, nullptr);
-	if (!window) {
+	if (!window)
 		return -1;
-	}
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(1);
 
@@ -172,12 +148,13 @@ int WinMain(void*, void*, int, char**) {
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	// State
-	static int size = 2;
-	static double inputs[MAX_POINTS] = {};
-	static double outputs[MAX_POINTS] = {};
-	static int current_example = -1;
-	static int current_tab = 0; // 0 = cos, 1 = sin
-	static int pending_tab = -1;
+	int size = 2;
+	double inputs[MAX_POINTS] = {};
+	double outputs[MAX_POINTS] = {};
+	int current_example = -1;
+	int current_tab = 0; // 0 = cos, 1 = sin
+	int pending_tab = -1;
+	bool need_recalculate = true;
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -192,8 +169,8 @@ int WinMain(void*, void*, int, char**) {
 
 		int width, height;
 		glfwGetWindowSize(window, &width, &height);
-		ImGui::SetNextWindowSize(ImVec2(width, height));
-		ImGui::SetNextWindowPos(ImVec2(0, 0));
+		ImGui::SetNextWindowSize(ImVec2((float)width, (float)height));
+		ImGui::SetNextWindowPos(ImVec2(0.0, 0.0));
 
 		static ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove |
 										ImGuiWindowFlags_NoResize |
@@ -202,37 +179,37 @@ int WinMain(void*, void*, int, char**) {
 
 		ImGui::Begin("Main area", 0, flags);
 
-		// --- Top bar ---
+		ImGui::PushID("Top bar");
+		ImGui::BeginDisabled(size >= MAX_POINTS);
 		if (ImGui::Button("+")) {
-			size = (size < MAX_POINTS) ? size + 1 : size;
-			if (current_tab == 0)
-				chebCosSum(size, inputs, outputs);
-			else
-				chebSinSum(size - 1, inputs + 1, outputs);
+			size++;
+			need_recalculate = true;
 		}
+		ImGui::EndDisabled();
+
 		ImGui::SameLine();
+		ImGui::BeginDisabled(size <= 2);
 		if (ImGui::Button("-")) {
-			size = (size > 2) ? size - 1 : size;
-			if (current_tab == 0)
-				chebCosSum(size, inputs, outputs);
-			else
-				chebSinSum(size - 1, inputs + 1, outputs);
+			size--;
+			need_recalculate = true;
 		}
+		ImGui::EndDisabled();
+
 		ImGui::SameLine();
 		ImGui::Text("size = %-6d", size);
 
 		ImGui::SameLine();
 		ImGui::Text("Example:");
-		ImGui::SameLine();
 
 		// --- Examples drop-down list ---
-		bool apply_example = false;
-		const char* preview = (current_example >= 0) ? examples[current_example].label : "Select...";
+		ImGui::SameLine();
+		float spacing =		ImGui::GetStyle().ItemSpacing.x;
 		float arrow_width = ImGui::GetFrameHeight();
-		float spacing = ImGui::GetStyle().ItemSpacing.x;
 		float clear_width = ImGui::CalcTextSize("Clear").x + ImGui::GetStyle().FramePadding.x * 2;
 		float combo_width = ImGui::GetContentRegionAvail().x - 2 * arrow_width - clear_width - 3 * spacing;
 
+		bool apply_example = false;
+		const char* preview = (current_example >= 0) ? examples[current_example].label : "Select...";
 		ImGui::SetNextItemWidth(combo_width);
 		if (ImGui::BeginCombo("##examples", preview)) {
 			for (int i = 0; i < examples_count; i++) {
@@ -263,19 +240,6 @@ int WinMain(void*, void*, int, char**) {
 		}
 		ImGui::EndDisabled();
 
-		if (apply_example) {
-			size = examples[current_example].size;
-			memcpy(inputs, examples[current_example].coeffs, sizeof(double) * MAX_POINTS);
-			if (examples[current_example].kind == FUNC_COS) {
-				pending_tab = 0;
-				chebCosSum(size, inputs, outputs);
-			}
-			else {
-				pending_tab = 1;
-				chebSinSum(size - 1, inputs + 1, outputs);
-			}
-		}
-
 		ImGui::SameLine();
 		if (ImGui::Button("Clear")) {
 			for (int i = 0; i < MAX_POINTS; i++) {
@@ -285,33 +249,36 @@ int WinMain(void*, void*, int, char**) {
 			current_example = -1;
 		}
 
-		// End of top bar
+		if (apply_example) {
+			size = examples[current_example].size;
+			memcpy(inputs, examples[current_example].coeffs, sizeof(double) * MAX_POINTS);
+			need_recalculate = true;
+			pending_tab = (examples[current_example].kind == FUNC_COS) ? 0 : 1;
+		}
+
+		ImGui::PopID(); // "Top bar"
 
 		if (ImGui::BeginTabBar("FuncKind", ImGuiTabBarFlags_None)) {
-			ImGuiTabItemFlags cos_tab_flags = 0;
-			ImGuiTabItemFlags sin_tab_flags = 0;
+			ImGuiTabItemFlags tab_flags[2] = {};
+			if (pending_tab >= 0) { tab_flags[pending_tab] |= ImGuiTabItemFlags_SetSelected; pending_tab = -1; }
 
-			if (pending_tab == 0) { cos_tab_flags |= ImGuiTabItemFlags_SetSelected; pending_tab = -1; }
-			if (pending_tab == 1) { sin_tab_flags |= ImGuiTabItemFlags_SetSelected; pending_tab = -1; }
-
-			if (ImGui::BeginTabItem("cos sum", nullptr, cos_tab_flags)) {
+			if (ImGui::BeginTabItem("cos sum", nullptr, tab_flags[0])) {
 				if (current_tab != 0) {
 					current_tab = 0;
-					chebCosSum(size, inputs, outputs);
+					need_recalculate = true;
 				}
 				ImGui::EndTabItem();
 			}
-			if (ImGui::BeginTabItem("sin sum", nullptr, sin_tab_flags)) {
+			if (ImGui::BeginTabItem("sin sum", nullptr, tab_flags[1])) {
 				if (current_tab != 1) {
 					current_tab = 1;
-					chebSinSum(size - 1, inputs + 1, outputs);
+					need_recalculate = true;
 				}
 				ImGui::EndTabItem();
 			}
 			ImGui::EndTabBar();
 		}
 
-		// --- Input fields ---
 		ImGui::PushID(current_tab);
 
 		ImGui::PushID("inputs");
@@ -319,22 +286,25 @@ int WinMain(void*, void*, int, char**) {
 		char label_buf[64];
 		FuncKind kind = (current_tab == 0) ? FUNC_COS : FUNC_SIN;
 		for (int i = current_tab; i < size; i++) {
-			build_input_label(label_buf, sizeof(label_buf), i, kind);
-			if (ImGui::InputDouble(label_buf, &inputs[i], 0.0, 0.0, "%.20lf")) {
-				if (current_tab == 0)
-					chebCosSum(size, inputs, outputs);
-				else
-					chebSinSum(size - 1, inputs + 1, outputs);
-			}
+			buildInputLabel(label_buf, sizeof(label_buf), i, kind);
+			if (ImGui::InputDouble(label_buf, &inputs[i], 0.0, 0.0, "%.20lf")) need_recalculate = true;
 		}
 		ImGui::PopID(); // "inputs"
 
 		ImGui::Separator();
 
+		if (need_recalculate) { // Calculate just before rendering the outputs
+			if (current_tab == 0)
+				chebCosSum((size_t)size, inputs, outputs);
+			else
+				chebSinSum((size_t)(size - 1), inputs + 1, outputs);
+			need_recalculate = false;
+		}
+
 		ImGui::PushID("outputs");
 		ImGui::Text("Calculated coefficients:");
 		for (int i = 0; i < size - current_tab; i++) {
-			build_output_label(label_buf, sizeof(label_buf), i);
+			buildOutputLabel(label_buf, sizeof(label_buf), i);
 			ImGui::InputDouble(label_buf, &outputs[i], 0.0, 0.0, "%.20lf", ImGuiInputTextFlags_ReadOnly);
 		}
 		ImGui::PopID(); // "outputs"
@@ -344,15 +314,15 @@ int WinMain(void*, void*, int, char**) {
 		// --- Generated code ---
 		ImGui::Text("Example code:");
 		static char code_buf[8192];
-		generate_example_code(code_buf, sizeof(code_buf), size, outputs, kind);
+		generateExampleCode(code_buf, sizeof(code_buf), size, outputs, kind);
 		ImGui::InputTextMultiline("##source", code_buf, strlen(code_buf) + 1,
-			ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16), ImGuiInputTextFlags_ReadOnly);
+									ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16),
+									ImGuiInputTextFlags_ReadOnly);
 
 		ImGui::PopID(); // current_tab
 
 		ImGui::End();
 
-		// Rendering
 		ImGui::Render();
 		int display_w, display_h;
 		glfwGetFramebufferSize(window, &display_w, &display_h);
@@ -364,7 +334,6 @@ int WinMain(void*, void*, int, char**) {
 		glfwSwapBuffers(window);
 	}
 
-	// Cleanup
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();

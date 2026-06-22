@@ -27,7 +27,7 @@ inline void chebSinSum(size_t size, const double* inputCoeffs, double* outputCoe
 }
 
 inline void chebPolySum(size_t size, const double* inputCoeffs, double* outputCoeffs, double kind) {
-	const size_t buf_size = (size + 3) & ~3; // Rounding up size to the next multiple of 4 (sizeof(__m256d) / sizeof(double))
+	const size_t buf_size = (size + 3ull) & ~3ull; // Rounding up size to the next multiple of 4 (sizeof(__m256d) / sizeof(double))
 	#ifdef __AVX2__
 		#ifdef _MSC_VER //msvc specific aligned alloc
 			double* buffer = (double*)_aligned_malloc(buf_size * 3 * sizeof(double), 32);
@@ -55,7 +55,7 @@ void chebPolySum_noAlloc(size_t size, const double* inputCoeffs, double* outputC
 	if (size < 2) return;
 	outputCoeffs[1] = inputCoeffs[1] * kind;
 
-	const size_t buf_size = (size + 3) & ~3;
+	const size_t buf_size = (size + 3ull) & ~3ull;
 	for (size_t i = 0; i < buf_size * 3; i++) {
 		buffer[i] = 0.0;
 	}

@@ -25,7 +25,7 @@ if not exist "%IMGUI_PDB%" (
 
 mkdir %OUT_DIR% >NUL 2>&1
 mkdir %OUT_DIR%\tmp >NUL 2>&1
-cl /std:c++20 /nologo /Od /arch:AVX2 /Zi /MD /utf-8 %INCLUDES% %SOURCES% ^
+cl /std:c++20 /W4 /nologo /Od /arch:AVX2 /Zi /MD /utf-8 %INCLUDES% %SOURCES% ^
 				/Fe%OUT_DIR%\%OUT_EXE%.exe ^
 				/Fd%OUT_DIR%\tmp\ ^
 				/Fo%OUT_DIR%\ ^
